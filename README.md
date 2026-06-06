@@ -158,43 +158,8 @@ Vela 支持接入多种主流 LLM 服务商，以下是快速配置步骤：
 
 ---
 
-## 🙋‍♂️ 参与贡献 / Contributing
-
-我们欢迎来自社区的代码贡献，包括但不限于：
-- 🐛 Bug 修复
-- 🤖 新 AI 服务商适配
-- 🎨 UI/UX 改进
-- 🌐 国际化 (i18n) 翻译
-- 📖 文档完善
-
-> 重大功能重构请先在 [Issues](https://github.com/heider-x/vela/issues) 中与作者探讨，以避免方向冲突。
-
----
-
 ## 📄 开源协议 / License
 
 本项目采用 [GPL-3.0 License](LICENSE) 开源。您可以自由地运行、研究、分享和修改代码，但基于此修改分发的新软件**必须同样遵循 GPL-3.0 协议开源**。
 
-如需闭源商用授权，请通过微信或邮件联系作者。
 
----
-
-<div align="center">
-
-**Crafted with 💡 by [heider-x]([https://github.com/heider](https://github.com/heider-x))**
-
-*Vela — Your AI-powered novel writing companion. Write smarter, not harder.*
-
-*Vela — 你的 AI 小说创作伙伴。让写作更智能，而非更辛苦。*
-
-</div>
-
-<!-- 
-  SEO Keywords (GitHub indexed): 
-  AI novel writing, AI writer, novel writing tool, fiction writing software, 
-  web novel, 网文写作, AI小说, 小说创作工具, creative writing IDE, 
-  AI story generator, novel outline generator, RAG knowledge base,
-  LLM writing assistant, Electron writing app, open source writing tool,
-  DeepSeek writing, Claude writing, Ollama writing, BYOK AI,
-  AI 写作助手, 网文生成器, 小说大纲生成, AI创作, 长篇小说写作
--->
