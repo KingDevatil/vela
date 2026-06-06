@@ -8,7 +8,7 @@ import { useLLMStore } from '../../stores/llm-store'
 import { useThemeStore, FONT_OPTIONS, type FontId } from '../../stores/theme-store'
 import type { ModelProfile } from '../../shared/ipc-channels'
 import type { ProviderPreset } from '../../shared/provider-presets'
-import { BUILTIN_PRESETS } from '../../shared/provider-presets'
+import { BUILTIN_PRESETS, EMBEDDING_PROVIDER_PRESETS } from '../../shared/provider-presets'
 import { randomUUID } from '../../utils/id'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
@@ -158,8 +158,9 @@ function LLMSection({
     if (!loaded) loadModels()
   }, [loaded, loadModels])
 
-  // 预设直接使用内置常量，无需 IPC 加载
-  const presets = BUILTIN_PRESETS
+  // 根据用途选择对应的预设列表
+  const isEmbedding = purposes.includes('embedding')
+  const presets = isEmbedding ? EMBEDDING_PROVIDER_PRESETS : BUILTIN_PRESETS
 
   // 按用途过滤
   const filtered = models.filter((m) =>
@@ -168,13 +169,12 @@ function LLMSection({
 
   /** 创建新模型，使用预设中 openai 的默认属性 */
   const handleAdd = () => {
-    const isEmbedding = purposes.includes('embedding')
     const openaiPreset = presets.find((p) => p.provider === 'openai') ?? presets[0]
     setEditingModel({
       id: randomUUID(),
       name: '',
       provider: 'openai',
-      protocol: (openaiPreset?.protocol ?? 'openai') as 'openai' | 'gemini',
+      protocol: (openaiPreset?.protocol ?? 'openai') as 'openai' | 'gemini' | 'anthropic',
       modelName: isEmbedding
         ? (openaiPreset?.embeddingModels[0] ?? 'text-embedding-3-small')
         : (openaiPreset?.models[0]?.name ?? 'gpt-4o'),
@@ -399,7 +399,7 @@ function ModelForm({
     onChange({
       ...model,
       provider,
-      protocol: (p?.protocol ?? 'openai') as 'openai' | 'gemini',
+      protocol: (p?.protocol ?? 'openai') as 'openai' | 'gemini' | 'anthropic',
       baseUrl: p?.baseUrl ?? '',
       modelName: defaultModelName,
       maxTokens: firstModel?.maxTokens ?? 4096,
@@ -467,10 +467,15 @@ function ModelForm({
             onChange={(e) => handleProviderChange(e.target.value as ModelProfile['provider'])}
           >
             <option value="openai">OpenAI</option>
-            <option value="deepseek">DeepSeek</option>
+            <option value="anthropic">Anthropic</option>
             <option value="gemini">Google Gemini</option>
+            <option value="deepseek">DeepSeek</option>
+            <option value="bigmodel">智谱 GLM</option>
+            <option value="minimax">MiniMax</option>
+            <option value="siliconflow">SiliconFlow（硅基流动）</option>
+            <option value="mimo">小米 MiMO</option>
             <option value="ollama">Ollama（本地）</option>
-            <option value="bigmodel">BigModel（智谱）</option>
+            <option value="lmstudio">LM Studio（本地）</option>
             <option value="custom">自定义</option>
           </NativeSelect>
         </div>
@@ -478,9 +483,10 @@ function ModelForm({
           <Label>调用协议</Label>
           <NativeSelect
             value={model.protocol}
-            onChange={(e) => up('protocol', e.target.value as 'openai' | 'gemini')}
+            onChange={(e) => up('protocol', e.target.value as 'openai' | 'gemini' | 'anthropic')}
           >
             <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic</option>
             <option value="gemini">Gemini</option>
           </NativeSelect>
         </div>
@@ -897,7 +903,8 @@ function EditorSection() {
 
 function providerEmoji(provider: string) {
   const map: Record<string, string> = {
-    openai: '🤖', deepseek: '🐬', gemini: '✨', ollama: '🦙', bigmodel: '🧠', custom: '⚙️',
+    openai: '🤖', anthropic: '🅰️', deepseek: '🐬', gemini: '✨', ollama: '🦙', bigmodel: '🧠',
+    minimax: '🔮', siliconflow: '🌊', mimo: '📱', lmstudio: '🖥️', custom: '⚙️',
   }
   return map[provider] ?? '🔧'
 }

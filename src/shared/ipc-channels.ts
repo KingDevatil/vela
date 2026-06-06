@@ -209,8 +209,8 @@ export interface TokenUsage {
 export interface ModelProfile {
   id: string
   name: string
-  provider: 'openai' | 'gemini' | 'deepseek' | 'ollama' | 'bigmodel' | 'custom'
-  protocol: 'openai' | 'gemini'
+  provider: 'openai' | 'anthropic' | 'gemini' | 'deepseek' | 'ollama' | 'bigmodel' | 'minimax' | 'siliconflow' | 'mimo' | 'lmstudio' | 'custom'
+  protocol: 'openai' | 'gemini' | 'anthropic'
   modelName: string
   apiKey: string
   baseUrl: string
