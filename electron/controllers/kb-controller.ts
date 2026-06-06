@@ -8,7 +8,7 @@ import {
 import { readJsonFile, GLOBAL_CONFIG_PATH, DEFAULT_GLOBAL_CONFIG, MODELS_CONFIG_PATH, RECENT_PROJECTS_PATH } from '../utils/config-utils'
 import { GlobalConfig, ModelProfile } from '../../src/shared/ipc-channels'
 
-function getEmbeddingConfig(): { protocol: 'openai' | 'gemini'; model: { baseUrl: string; apiKey: string; modelName: string } } | null {
+function getEmbeddingConfig(): { protocol: 'openai' | 'gemini' | 'anthropic'; model: { baseUrl: string; apiKey: string; modelName: string } } | null {
   const config = readJsonFile<GlobalConfig>(GLOBAL_CONFIG_PATH, DEFAULT_GLOBAL_CONFIG)
   const targetModelId = config.defaultEmbeddingModelId || config.defaultModelId
   if (!targetModelId) return null
@@ -17,7 +17,7 @@ function getEmbeddingConfig(): { protocol: 'openai' | 'gemini'; model: { baseUrl
   const model = models.find((m) => m.id === targetModelId)
   if (!model) return null
   return {
-    protocol: model.protocol as 'openai' | 'gemini',
+    protocol: model.protocol as 'openai' | 'gemini' | 'anthropic',
     model: { baseUrl: model.baseUrl, apiKey: model.apiKey, modelName: model.modelName },
   }
 }

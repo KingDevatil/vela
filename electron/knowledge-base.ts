@@ -49,7 +49,7 @@ async function ensureMigration(projectPath: string): Promise<void> {
 export async function importDocument(
   filePath: string,
   projectPath: string,
-  protocol: 'openai' | 'gemini',
+  protocol: 'openai' | 'gemini' | 'anthropic',
   model: { baseUrl: string; apiKey: string },
   onProgress?: (progress: number, message: string) => void,
 ): Promise<{ success: boolean; docId?: string; chunkCount?: number; error?: string }> {
@@ -109,7 +109,7 @@ export async function importDocument(
 export async function searchKnowledge(
   query: string,
   projectPath: string,
-  protocol: 'openai' | 'gemini',
+  protocol: 'openai' | 'gemini' | 'anthropic',
   model: { baseUrl: string; apiKey: string },
   topK: number = 5,
   chapterScope?: [number, number],
@@ -168,7 +168,7 @@ export async function getKnowledgeStats(projectPath: string): Promise<{
 export async function importFolder(
   folderPath: string,
   projectPath: string,
-  protocol: 'openai' | 'gemini',
+  protocol: 'openai' | 'gemini' | 'anthropic',
   model: { baseUrl: string; apiKey: string },
   onProgress?: (current: number, total: number, fileName: string) => void,
 ): Promise<{
@@ -240,7 +240,7 @@ export async function importText(
   text: string,
   fileName: string,
   projectPath: string,
-  protocol: 'openai' | 'gemini',
+  protocol: 'openai' | 'gemini' | 'anthropic',
   model: { baseUrl: string; apiKey: string },
 ): Promise<{ success: boolean; docId?: string; chunkCount?: number; error?: string }> {
   try {
@@ -299,7 +299,7 @@ export async function getVectorlessCount(projectPath: string): Promise<{ count: 
  */
 export async function backfillVectors(
   projectPath: string,
-  protocol: 'openai' | 'gemini',
+  protocol: 'openai' | 'gemini' | 'anthropic',
   model: { baseUrl: string; apiKey: string },
 ): Promise<{ success: boolean; processed: number; failed: number; error?: string }> {
   try {

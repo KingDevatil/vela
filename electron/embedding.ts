@@ -95,7 +95,7 @@ export async function embedGemini(
 /** 统一的 Embedding 调用接口 */
 export async function generateEmbeddings(
   texts: string[],
-  protocol: 'openai' | 'gemini',
+  protocol: 'openai' | 'gemini' | 'anthropic',
   model: { baseUrl: string; apiKey: string; modelName?: string },
 ): Promise<number[][]> {
   // 空文本处理
