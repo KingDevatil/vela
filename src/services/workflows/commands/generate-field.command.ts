@@ -90,8 +90,16 @@ export class GenerateFieldCommand extends BaseWorkflowCommand<string> {
     return parts.length > 0 ? parts.join('\n') : '（尚未填写任何配置）'
   }
 
+  /** 获取当前字段的已有内容 */
+  private getCurrentFieldValue(config: NovelConfig): string {
+    const fieldValue = config[this.fieldKey]
+    return typeof fieldValue === 'string' ? fieldValue.trim() : ''
+  }
+
   /** 根据 fieldKey 构建针对性 prompt */
   private buildPrompt(config: NovelConfig, context: string): string {
+    const currentContent = this.getCurrentFieldValue(config)
+
     const fieldPrompts: Record<GeneratableField, string> = {
       coreOutline: `请为这部小说生成一份【核心大纲】。
 要求：不少于150字，包含主角的致命危机/开局困境、必须完成的核心目标、终极大危机、主要爽点起伏。
@@ -127,6 +135,22 @@ export class GenerateFieldCommand extends BaseWorkflowCommand<string> {
 5. 情感基调：热血/冷峻/诙谐/沉重/轻松
 6. 标志性手法：推荐的修辞手法、过渡技巧
 请根据本书的类型（${config.genre || '未指定'}）和受众（${config.targetAudience || '未指定'}）推荐最匹配的写作风格。`,
+    }
+
+    // 如果当前字段已有内容，构建基于已有内容的 prompt
+    if (currentContent) {
+      return `以下是这部小说的已有配置信息：
+${context}
+
+${fieldPrompts[this.fieldKey]}
+
+【重要】用户已经为「${FIELD_LABELS[this.fieldKey]}」编写了以下内容：
+---
+${currentContent}
+---
+
+请基于用户已有的内容进行扩展和完善，保留用户的核心想法和设定，补充缺失的部分，使内容更加完整和专业。不要完全推翻用户已有的内容。`
+
     }
 
     return `以下是这部小说的已有配置信息：
