@@ -27,6 +27,12 @@ export interface PromptTemplate {
 /** 允许用户自定义编辑的模板 Key 列表（其余为系统模板，不可编辑） */
 export const EDITABLE_PROMPT_KEYS: string[] = [
   'generate_global_config',
+  'generate_core_outline',
+  'generate_world_setting',
+  'generate_golden_finger',
+  'generate_protagonist_profile',
+  'generate_global_guidance',
+  'generate_writing_style',
   'premise',
   'character_dynamics',
   'world_building',
@@ -90,6 +96,112 @@ export const BUILTIN_PROMPTS: PromptTemplate[] = [
 }`,
   },
 
+  // ================================================================
+  // 单字段 AI 生成
+  // ================================================================
+
+  {
+    key: 'generate_core_outline',
+    name: '核心大纲生成',
+    description: '生成或扩展核心大纲字段',
+    systemRole: '你是一位入行十年的顶尖网文主编与白金大神作家，擅长精准设计小说的各项核心配置。',
+    variables: {
+      context: '已有配置信息',
+      current_content: '用户已有的当前字段内容（如有）',
+      genre: '小说类型',
+      total_chapters: '总章数',
+    },
+    content: `请为这部小说生成一份【核心大纲】。
+要求：不少于150字，包含主角的致命危机/开局困境、必须完成的核心目标、终极大危机、主要爽点起伏。
+大纲应具有强烈的戏剧张力和商业吸引力，让编辑一看就知道这本书的核心卖点。`,
+  },
+
+  {
+    key: 'generate_world_setting',
+    name: '世界观设定生成',
+    description: '生成或扩展世界观设定字段',
+    systemRole: '你是一位入行十年的顶尖网文主编与白金大神作家，擅长精准设计小说的各项核心配置。',
+    variables: {
+      context: '已有配置信息',
+      current_content: '用户已有的当前字段内容（如有）',
+      genre: '小说类型',
+    },
+    content: `请为这部小说生成一份【世界观/初始设定】。
+要求：描述故事发生的背景、时代、力量体系、社会结构。
+包含：物理维度特征、权力结构与断层、核心资源争夺机制。
+所有设定必须自带冲突点，能直接驱动情节发展。`,
+  },
+
+  {
+    key: 'generate_golden_finger',
+    name: '金手指/核心卖点生成',
+    description: '生成或扩展金手指/核心卖点字段',
+    systemRole: '你是一位入行十年的顶尖网文主编与白金大神作家，擅长精准设计小说的各项核心配置。',
+    variables: {
+      context: '已有配置信息',
+      current_content: '用户已有的当前字段内容（如有）',
+      genre: '小说类型',
+    },
+    content: `请为这部小说生成一份【金手指/核心卖点体系】。
+要求：详细描述主角的差异化优势。
+包含：获取方式、具体功能与核心机制、进阶成长路径、副作用/限制/代价。
+金手指必须与世界观规则产生有趣的交互，而非万能型。`,
+  },
+
+  {
+    key: 'generate_protagonist_profile',
+    name: '主角人设生成',
+    description: '生成或扩展主角人设字段',
+    systemRole: '你是一位入行十年的顶尖网文主编与白金大神作家，擅长精准设计小说的各项核心配置。',
+    variables: {
+      context: '已有配置信息',
+      current_content: '用户已有的当前字段内容（如有）',
+      genre: '小说类型',
+    },
+    content: `请为这部小说生成一份【主角人设档案】。
+要求：包含表面伪装标签与真实性格、极具反差的性格弱点。
+核心驱动力需要区分物质目标（显性）和深层灵魂渴望（隐性）。
+主角必须有清晰的成长弧光起点和终点。`,
+  },
+
+  {
+    key: 'generate_global_guidance',
+    name: '全局写作要求生成',
+    description: '生成或扩展全局写作要求字段',
+    systemRole: '你是一位入行十年的顶尖网文主编与白金大神作家，擅长精准设计小说的各项核心配置。',
+    variables: {
+      context: '已有配置信息',
+      current_content: '用户已有的当前字段内容（如有）',
+      total_chapters: '总章数',
+    },
+    content: `请为这部小说生成一份【全局写作要求】。
+要求：严格基于{{total_chapters}}章的实际规模推算。
+包含：前/中/后期各占多少章、小/中/大高潮的具体章节频率。
+明确写作风格要求、核心禁忌/毒点、节奏控制策略。`,
+  },
+
+  {
+    key: 'generate_writing_style',
+    name: '文风配置生成',
+    description: '生成或扩展文风配置字段',
+    systemRole: '你是一位入行十年的顶尖网文主编与白金大神作家，擅长精准设计小说的各项核心配置。',
+    variables: {
+      context: '已有配置信息',
+      current_content: '用户已有的当前字段内容（如有）',
+      genre: '小说类型',
+      target_audience: '目标受众',
+    },
+    content: `请为这部小说设计一份【文风配置指南】。
+要求：不少于100字，这份指南将指导 AI 写稿和修稿时的文风遵循。
+请从以下维度给出具体、可操作的风格要求：
+1. 叙述节奏：整体快慢偏好、场景切换频率、段落长短
+2. 描写密度：环境/动作/心理描写的比重偏好
+3. 对话风格：对话比例、口语化程度、是否使用方言
+4. 用词偏好：古风/现代/专业术语的倾向
+5. 情感基调：热血/冷峻/诙谐/沉重/轻松
+6. 标志性手法：推荐的修辞手法、过渡技巧
+请根据本书的类型（{{genre}}）和受众（{{target_audience}}）推荐最匹配的写作风格。`,
+  },
 
   // ================================================================
   // 架构生成 — 四步流水线
