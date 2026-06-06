@@ -18,14 +18,9 @@ import { cn } from '../../lib/utils'
 import { ipc } from '../../services/ipc-client'
 import { Switch } from '../ui/Switch'
 
-// 打赏/赞助 图片资源（通过 import 让 Vite 处理路径，确保打包后可正常加载）
-import wepayImg from '/buyme/wepay.jpg?url'
-import alipayImg from '/buyme/alipay.jpg?url'
-import wechatImg from '/buyme/wechat.jpg?url'
-
 // ==================== 分类定义 ====================
 
-type SettingsSection = 'llm' | 'embedding' | 'proxy' | 'editor' | 'prompts' | 'about'
+type SettingsSection = 'llm' | 'embedding' | 'proxy' | 'editor' | 'prompts'
 
 interface SectionItem {
   id: SettingsSection
@@ -40,7 +35,6 @@ const SECTIONS: SectionItem[] = [
   { id: 'proxy', label: '网络代理', icon: <Globe size={16} />, description: '配置 HTTP / SOCKS5 代理，用于访问受限 API' },
   { id: 'editor', label: '编辑器', icon: <Type size={16} />, description: '字体大小、自动保存等编辑器偏好设置' },
   { id: 'prompts', label: '提示词模板', icon: <MessageSquare size={16} />, description: '自定义 AI 创作各环节使用的提示词模板' },
-  { id: 'about', label: '关于与支持', icon: <span style={{ color: '#ff4d4f', fontSize: 14 }}>❤️</span>, description: '商业合作与个人开发赞助' },
 ]
 
 // ==================== 主组件 ====================
@@ -133,7 +127,6 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
             {section === 'proxy' && <ProxySection />}
             {section === 'editor' && <EditorSection />}
             {section === 'prompts' && <PromptSettings />}
-            {section === 'about' && <AboutSection />}
           </div>
         </main>
       </div>
@@ -895,39 +888,6 @@ function EditorSection() {
       >
         <span className="flex-shrink-0 mt-0.5" style={{ color: 'var(--color-text-muted)' }}>提示</span>
         <span>所有字体已内置在应用中，无需网络连接，切换后立即生效。</span>
-      </div>
-    </div>
-  )
-}
-
-// ==================== 关于与支持区 ====================
-
-function AboutSection() {
-  return (
-    <div className="space-y-6 max-w-[600px] p-2">
-      <div className="flex flex-col items-center justify-center py-8 rounded-xl space-y-2" style={{ backgroundColor: 'var(--color-sidebar)', border: '1px solid var(--color-border)' }}>
-        <h1 className="text-2xl font-bold brand-gradient tracking-wider">Vela IDE</h1>
-        <p className="text-sm opacity-80" style={{ color: 'var(--color-text)' }}>v{__APP_VERSION__}</p>
-        <p className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>Crafted with ❤️ by heider</p>
-      </div>
-
-      <div className="space-y-4 pt-2">
-        <h3 className="text-sm font-semibold pb-2" style={{ borderBottom: '1px solid var(--color-border)', color: 'var(--color-text)' }}>☕ 赞助与支持</h3>
-        <p className="text-xs leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>
-          Vela 开源版由个人开发者利用业余时间热情驱动，如果这个工具有效提升了您的写作效率，或者您看到了它商业化的潜力，欢迎扫码赞助！您的支持是我持续迭代的最大动力 ❤️
-        </p>
-        <div className="flex gap-4 items-center">
-          <img src={wepayImg} alt="微信打赏" className="w-[180px] rounded-lg" style={{ border: '1px solid var(--color-border)' }} />
-          <img src={alipayImg} alt="支付宝打赏" className="w-[180px] rounded-lg" style={{ border: '1px solid var(--color-border)' }} />
-        </div>
-      </div>
-
-      <div className="space-y-4 pt-4">
-        <h3 className="text-sm font-semibold pb-2" style={{ borderBottom: '1px solid var(--color-border)', color: 'var(--color-text)' }}>🤝 商业合作与技术交流</h3>
-        <p className="text-xs leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>
-          如果您对本项目的商业化落地（SaaS 授权）、技术实现细节或 AI 产品方向感兴趣，欢迎随时交流：
-        </p>
-        <img src={wechatImg} alt="个人微信" className="w-[180px] rounded-lg" style={{ border: '1px solid var(--color-border)' }} />
       </div>
     </div>
   )

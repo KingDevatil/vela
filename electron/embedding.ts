@@ -10,13 +10,24 @@
 
 // ===== Embedding API 调用 =====
 
+/** 构建 OpenAI Embedding URL，自动补全 /v1 前缀 */
+function buildEmbeddingUrl(baseUrl: string): string {
+  const base = baseUrl.replace(/\/$/, '')
+  // 如果 baseUrl 已经带了版本路径（/v1、/v4 等），直接追加
+  if (/\/v\d+$/.test(base)) {
+    return `${base}/embeddings`
+  }
+  // 否则补全 /v1/embeddings
+  return `${base}/v1/embeddings`
+}
+
 /** OpenAI Embedding API */
 export async function embedOpenAI(
   texts: string[],
   model: { baseUrl: string; apiKey: string; modelName?: string },
 ): Promise<number[][]> {
   const embeddingModel = model.modelName || 'text-embedding-3-small'
-  const url = model.baseUrl.replace(/\/$/, '') + '/embeddings'
+  const url = buildEmbeddingUrl(model.baseUrl)
   const res = await fetch(url, {
     method: 'POST',
     headers: {
