@@ -11,8 +11,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6.svg)](https://www.typescriptlang.org/)
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPLv3-yellow.svg)](https://opensource.org/licenses/GPL-3.0)
 
-[🚀 下载客户端 / Download](#-安装与使用--installation) • [☕ 赞助作者 / Sponsor](#-赞助与支持--sponsor)
-
+[🚀 下载客户端 / Download](#-安装与使用--installation) 
 </div>
 
 ---
