@@ -12,6 +12,7 @@
  */
 
 import { toolRegistry, type ToolResult, type ToolArtifact } from './tool-registry'
+import { safeParseJSON } from '../workflows/workflow-utils'
 
 // ===== 常量 =====
 
@@ -272,11 +273,11 @@ export function parseToolCalls(text: string): {
     const rawContent = match[1].trim()
     let parsed = false
 
-    // 策略 1：直接解析整个内容
+    // 策略 1：直接解析整个内容（使用容错 JSON 解析器）
     try {
-      const data = JSON.parse(rawContent)
+      const data = safeParseJSON<Record<string, unknown>>(rawContent)
       if (data.name && typeof data.name === 'string') {
-        toolCalls.push({ name: data.name, arguments: data.arguments ?? {} })
+        toolCalls.push({ name: data.name, arguments: (data.arguments ?? {}) as Record<string, unknown> })
         parsed = true
       }
     } catch { /* 尝试容错解析 */ }
@@ -286,9 +287,9 @@ export function parseToolCalls(text: string): {
       const jsonMatch = rawContent.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
         try {
-          const data = JSON.parse(jsonMatch[0])
+          const data = safeParseJSON<Record<string, unknown>>(jsonMatch[0])
           if (data.name && typeof data.name === 'string') {
-            toolCalls.push({ name: data.name, arguments: data.arguments ?? {} })
+            toolCalls.push({ name: data.name, arguments: (data.arguments ?? {}) as Record<string, unknown> })
             parsed = true
           }
         } catch {

@@ -2,7 +2,7 @@ import type { WorkflowDefinition } from '../../stores/workflow-store'
 import { useProjectStore } from '../../stores/project-store'
 import { ipc } from '../ipc-client'
 import type { BlueprintData } from '../../../electron/repositories/blueprint-repository'
-import { stripThinkingTags } from './workflow-utils'
+import { stripThinkingTags, safeParseJSON } from './workflow-utils'
 
 // ==========================================
 // 1. 结构与类型导出 (保留对外的向后兼容)
@@ -46,17 +46,17 @@ export function parseTextBlueprints(content: string, startNum: number, endNum: n
 
     if (startIndex !== -1 && endIndex !== -1) {
       const arrayStr = jsonStr.substring(startIndex, endIndex + 1)
-      let parsed = JSON.parse(arrayStr)
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && parsed.blueprints) {
-        parsed = parsed.blueprints
+      let parsed = safeParseJSON<unknown>(arrayStr) as Record<string, unknown> | Record<string, unknown>[]
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && (parsed as Record<string, unknown>).blueprints) {
+        parsed = (parsed as Record<string, unknown>).blueprints as Record<string, unknown>[]
       }
       if (Array.isArray(parsed)) {
-        result = parsed
-          .filter((p: Record<string, unknown>) => {
+        result = (parsed as Record<string, unknown>[])
+          .filter((p) => {
             const n = Number(p.chapterNumber || p.chapter_number)
             return n >= startNum && n <= endNum
           })
-          .map((p: Record<string, unknown>) => ({
+          .map((p) => ({
             ...EMPTY_BLUEPRINT,
             chapterNumber: Number(p.chapterNumber || p.chapter_number || 0),
             title: String(p.title || `第${p.chapterNumber}章`),
@@ -91,11 +91,13 @@ export async function loadDirectoryBlueprints(): Promise<ChapterBlueprint[]> {
 }
 
 export async function saveChapterBlueprint(blueprint: ChapterBlueprint): Promise<void> {
-  await ipc.invoke('db:blueprint-upsert', blueprint)
+  const res = await ipc.invoke('db:blueprint-upsert', blueprint) as { success: boolean; error?: string }
+  if (res && !res.success) throw new Error(`蓝图保存失败: ${res.error || '未知错误'}`)
 }
 
 export async function saveAllBlueprints(blueprints: ChapterBlueprint[]): Promise<void> {
-  await ipc.invoke('db:blueprint-upsert-many', blueprints)
+  const res = await ipc.invoke('db:blueprint-upsert-many', blueprints) as { success: boolean; error?: string }
+  if (res && !res.success) throw new Error(`蓝图批量保存失败: ${res.error || '未知错误'}`)
 }
 
 export async function getBlueprintCount(): Promise<number> {

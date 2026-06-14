@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { Save, RefreshCw, Sparkles, Loader2, AlertTriangle, FileText } from 'lucide-react'
 import { renderIcon } from '../panels/sidebar/SidebarShared'
+import { toast } from '../ui/Toast'
 
 import { useEditorStore } from '../../stores/editor-store'
 import ArchitectureConfirmDialog from '../dialogs/ArchitectureConfirmDialog'
@@ -26,10 +27,13 @@ const ARCH_META: Record<ArchStepKey, { iconName: string; label: string; desc: st
 
 /** 从文件路径推断出 ArchStepKey */
 function detectStepKey(filePath: string): ArchStepKey | null {
-  if (filePath.endsWith('premise.md')) return 'premise'
-  if (filePath.endsWith('characters.md')) return 'characters'
-  if (filePath.endsWith('worldbuilding.md')) return 'worldbuilding'
-  if (filePath.endsWith('synopsis.md')) return 'synopsis'
+  // 支持两种路径格式：
+  //   vela://core/premise   （DB 伪协议，ProjectTree 使用）
+  //   .../premise.md        （旧版物理路径）
+  if (filePath.endsWith('/premise') || filePath.endsWith('premise.md')) return 'premise'
+  if (filePath.endsWith('/characters') || filePath.endsWith('characters.md')) return 'characters'
+  if (filePath.endsWith('/worldbuilding') || filePath.endsWith('worldbuilding.md')) return 'worldbuilding'
+  if (filePath.endsWith('/synopsis') || filePath.endsWith('synopsis.md')) return 'synopsis'
   return null
 }
 
@@ -193,8 +197,9 @@ export default function ArchFileViewer({ filePath, content: initialContent }: Pr
         unsub1()
         unsub2()
       })
-      const unsub2 = globalEventBus.on('CHARACTER_EXTRACT_FAILED', () => {
+      const unsub2 = globalEventBus.on('CHARACTER_EXTRACT_FAILED', (payload) => {
         setExtracting(false)
+        toast.error(`角色卡提取失败：${payload.error || '未知错误'}`)
         unsub1()
         unsub2()
       })

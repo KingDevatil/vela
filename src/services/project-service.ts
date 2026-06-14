@@ -58,8 +58,8 @@ export function initProjectService(): void {
           useCharacterStore.getState().load(),
         ])
         console.log('[ProjectService] 草稿和角色卡刷新完成')
-      } else if (payload.type === 'architecture_generation') {
-        // 架构生成完成 → 角色卡可能被提取
+      } else if (payload.type === 'architecture_generation' || payload.type === 'post_process') {
+        // 架构生成 / 后处理完成 → 角色卡可能被提取
         console.log('[ProjectService] 刷新角色卡...')
         await useCharacterStore.getState().load()
         console.log('[ProjectService] 角色卡刷新完成')
@@ -91,9 +91,10 @@ export function initProjectService(): void {
     })
   )
 
-  // 角色卡提取失败 → 也刷新角色卡（确保 UI 状态一致）
+  // 角色卡提取失败 → 记录错误并刷新角色卡（确保 UI 状态一致）
   disposers.push(
-    globalEventBus.on('CHARACTER_EXTRACT_FAILED', async () => {
+    globalEventBus.on('CHARACTER_EXTRACT_FAILED', async (payload) => {
+      useCharacterStore.getState().setExtractError(payload.error || '角色卡提取失败，请重试')
       await useCharacterStore.getState().load()
     })
   )

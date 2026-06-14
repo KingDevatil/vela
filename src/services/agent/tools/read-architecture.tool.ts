@@ -8,14 +8,14 @@ import { useProjectStore } from '../../../stores/project-store'
 
 export const readArchitectureTool = buildAgentTool({
   name: 'read_architecture',
-  description: '读取小说的故事架构文件（四段式架构：故事前提、世界观、角色图谱、剧情大纲等）。是理解小说全局结构的核心工具。',
+  description: '读取小说的故事架构数据（存储在数据库中，非文件）。支持四个维度：故事前提、角色图谱、世界观、情节大纲。是理解小说全局结构的核心工具。',
   source: 'builtin',
   inputSchema: {
     type: 'object',
     properties: {
-      file_name: {
+      section: {
         type: 'string',
-        description: '架构文件名（可选）。不填则列出所有架构文件。例如 "故事前提.md"、"世界观.md"',
+        description: '架构维度（可选）。不填则返回全部。可选值："premise"（故事前提）、"characters"（角色图谱）、"worldbuilding"（世界观）、"synopsis"（情节大纲）',
       },
     },
   },
@@ -26,7 +26,7 @@ export const readArchitectureTool = buildAgentTool({
       return { success: false, content: '', error: '没有打开的项目' }
     }
 
-    const fileName = args.file_name as string | undefined
+    const section = args.section as string | undefined
 
     try {
       const core = await ipc.invoke('db:project-core-get')
@@ -34,35 +34,35 @@ export const readArchitectureTool = buildAgentTool({
         return { success: false, content: '', error: '项目架构未初始化' }
       }
 
-      if (fileName) {
-        // Find property based on suffix
-        const isPremise = fileName.includes('前提') || fileName.includes('premise')
-        const isWorld = fileName.includes('世界') || fileName.includes('world')
-        const isChar = fileName.includes('角色') || fileName.includes('character')
-        const isSynopsis = fileName.includes('大纲') || fileName.includes('synopsis')
+      if (section) {
+        const isPremise = section.includes('premise') || section.includes('前提')
+        const isWorld = section.includes('world') || section.includes('世界')
+        const isChar = section.includes('character') || section.includes('角色')
+        const isSynopsis = section.includes('synopsis') || section.includes('大纲')
         let property = ''
-        if (isPremise) property = core.premise
-        else if (isWorld) property = core.worldbuilding
-        else if (isChar) property = core.charactersArch
-        else if (isSynopsis) property = core.synopsis
+        let label = section
+        if (isPremise) { property = core.premise; label = '故事前提' }
+        else if (isWorld) { property = core.worldbuilding; label = '世界观' }
+        else if (isChar) { property = core.charactersArch; label = '角色图谱' }
+        else if (isSynopsis) { property = core.synopsis; label = '情节大纲' }
 
         if (!property) {
-          return { success: false, content: '', error: `架构文件内容为空：${fileName}` }
+          return { success: false, content: '', error: `架构数据为空：${label}` }
         }
-        return { success: true, content: `📐 架构文件：${fileName}\n\n${property}` }
+        return { success: true, content: `📐 ${label}\n\n${property}` }
       }
 
       const contents: string[] = []
-      if (core.premise) contents.push(`## 📄 premise.md\n\n${core.premise}`)
-      if (core.worldbuilding) contents.push(`## 📄 worldbuilding.md\n\n${core.worldbuilding}`)
-      if (core.charactersArch) contents.push(`## 📄 characters.md\n\n${core.charactersArch}`)
-      if (core.synopsis) contents.push(`## 📄 synopsis.md\n\n${core.synopsis}`)
+      if (core.premise) contents.push(`## 📄 故事前提\n\n${core.premise}`)
+      if (core.charactersArch) contents.push(`## 📄 角色图谱\n\n${core.charactersArch}`)
+      if (core.worldbuilding) contents.push(`## 📄 世界观\n\n${core.worldbuilding}`)
+      if (core.synopsis) contents.push(`## 📄 情节大纲\n\n${core.synopsis}`)
 
       if (contents.length === 0) {
-        return { success: true, content: '⚠️ 架构为空，暂无架构文件。建议通过工作流生成故事架构。' }
+        return { success: true, content: '⚠️ 架构为空，暂无架构数据。建议通过工作流生成故事架构。' }
       }
 
-      return { success: true, content: `📐 故事架构（${contents.length} 个文件）\n\n${contents.join('\n\n---\n\n')}` }
+      return { success: true, content: `📐 故事架构（${contents.length} 个维度）\n\n${contents.join('\n\n---\n\n')}` }
     } catch (error) {
       return { success: false, content: '', error: `读取架构失败：${String(error)}` }
     }

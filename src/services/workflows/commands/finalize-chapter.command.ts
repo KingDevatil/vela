@@ -9,6 +9,7 @@ import {
   runPostProcessPipeline,
   getChapterFinalizeScope,
   stripThinkingTags,
+  safeParseJSON,
   type PostProcessStep,
 } from '../workflow-utils'
 import type { ChapterInfo } from '../chapter-workflow'
@@ -57,13 +58,7 @@ async function callLLMForPostProcess(
 
 /** 容错 JSON 解析（剥离 Markdown 代码块 + 自动截取有效 JSON 边界） */
 function parseJSON<T>(text: string): T {
-  let cleanText = text.replace(/```json?\n?/gi, '').replace(/```\n?/gi, '').trim()
-  const firstBrace = cleanText.indexOf('{')
-  const lastBrace = cleanText.lastIndexOf('}')
-  if (firstBrace !== -1 && lastBrace !== -1) {
-    cleanText = cleanText.substring(firstBrace, lastBrace + 1)
-  }
-  return JSON.parse(cleanText) as T
+  return safeParseJSON<T>(text)
 }
 
 // ===== 后处理步骤构建器 =====
@@ -122,8 +117,12 @@ export function buildFinalizePostProcessSteps(
         const cleanNotes = await callLLMForPostProcess(notesBuilder, callbacks)
 
         // 写入蓝图 JSON 的 notes 字段
-        await ipc.invoke('db:blueprint-update-notes', chapterNumber, cleanNotes)
-        callbacks.log('✅ 本章剧情要点提取完成（已写入蓝图）')
+        const notesRes = await ipc.invoke('db:blueprint-update-notes', chapterNumber, cleanNotes) as { success: boolean; error?: string }
+        if (!notesRes?.success) {
+          callbacks.log(`⚠️ 章节剧情要点写入蓝图失败：${notesRes?.error || '未知错误'}`)
+        } else {
+          callbacks.log('✅ 本章剧情要点提取完成（已写入蓝图）')
+        }
       },
     })
   }
@@ -175,8 +174,12 @@ export function buildFinalizePostProcessSteps(
                 recentEvents: cs.recentEvents || '',
                 updatedAtChapter: chapterNumber,
               }
-              await ipc.invoke('db:character-update-state', upd.name, newState)
-              callbacks.log(`✅ 更新角色动态状态: ${dbChar.name}`)
+              const stateRes = await ipc.invoke('db:character-update-state', upd.name, newState) as { success: boolean; error?: string }
+              if (stateRes?.success) {
+                callbacks.log(`✅ 更新角色动态状态: ${dbChar.name}`)
+              } else {
+                callbacks.log(`⚠️ 更新角色状态失败 (${dbChar.name}): ${stateRes?.error || '未知错误'}`)
+              }
             }
           }
         }
@@ -185,9 +188,8 @@ export function buildFinalizePostProcessSteps(
           let newCharCount = 0
           for (const newChar of cardUpdates.newCharacters) {
             if (allChars.some((c) => c.name === newChar.name)) continue
-            newCharCount++
             const cs = newChar.currentState || {}
-            await ipc.invoke('db:character-upsert', {
+            const upsertRes = await ipc.invoke('db:character-upsert', {
               name: newChar.name,
               role: newChar.role || 'supporting',
               gender: '', age: '', appearance: '', personality: '', background: '',
@@ -201,7 +203,12 @@ export function buildFinalizePostProcessSteps(
                 recentEvents: cs.recentEvents || '',
                 updatedAtChapter: chapterNumber,
               }
-            })
+            }) as { success: boolean; error?: string }
+            if (!upsertRes?.success) {
+              callbacks.log(`⚠️ 新角色写入失败 (${newChar.name}): ${upsertRes?.error || '未知错误'}`)
+            } else {
+              newCharCount++
+            }
           }
           if (newCharCount > 0) {
             callbacks.log(`✅ 自动提取并登记 ${newCharCount} 名新出场角色`)
@@ -254,8 +261,10 @@ export class FinalizeChapterCommand extends BaseWorkflowCommand<void> {
     const dbDraft = await parseDraftMeta(this.params.draftPath)
     if (!dbDraft) throw new Error('内部状态流转异常：无法在数据库中定位该草稿源文件或解析路径版本')
 
-    await ipc.invoke('db:draft-update-content', dbDraft.id, refinedDraftText, refinedDraftText.length)
-    await ipc.invoke('db:draft-update-status', dbDraft.id, 'finalized', refinedDraftText.length)
+    const contentRes = await ipc.invoke('db:draft-update-content', dbDraft.id, refinedDraftText, refinedDraftText.length) as { success: boolean; error?: string }
+    if (!contentRes?.success) throw new Error(`定稿内容写入数据库失败：${contentRes?.error || '未知错误'}`)
+    const statusRes = await ipc.invoke('db:draft-update-status', dbDraft.id, 'finalized', refinedDraftText.length) as { success: boolean; error?: string }
+    if (!statusRes?.success) throw new Error(`定稿状态更新失败：${statusRes?.error || '未知错误'}`)
 
     // 【重要】：除了写入 DB，对于已定稿的章节需要实体化为物理文件放在根目录，供外部系统读取或备份
     const safeTitle = this.params.chapterInfo.title ? ` ${this.params.chapterInfo.title.replace(/[/\\]/g, '_')}` : ''

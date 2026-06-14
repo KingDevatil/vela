@@ -2,7 +2,7 @@
  * CharactersView — 角色管理列表视图
  */
 
-import { Users, RefreshCw, Plus } from 'lucide-react'
+import { Users, RefreshCw, Plus, AlertTriangle } from 'lucide-react'
 import { useProjectStore } from '../../../stores/project-store'
 import { useCharacterStore, ROLE_LABELS } from '../../../stores/character-store'
 import { Button } from '../../ui/Button'
@@ -13,6 +13,7 @@ export default function CharactersView() {
   const currentProject = useProjectStore(s => s.currentProject)
   const characters = useCharacterStore(s => s.characters)
   const selectedName = useCharacterStore(s => s.selectedName)
+  const extractError = useCharacterStore(s => s.extractError)
   const load = useCharacterStore(s => s.load)
   const setSelectedName = useCharacterStore(s => s.setSelectedName)
   const addCharacter = useCharacterStore(s => s.addCharacter)
@@ -70,7 +71,24 @@ export default function CharactersView() {
           </div>
         ))}
         {characters.length === 0 && (
-          <div className="text-center py-6 opacity-30 text-xs">暂无角色</div>
+          <div className="text-center py-6 opacity-60 text-xs space-y-2">
+            {extractError ? (
+              <>
+                <div className="flex items-center justify-center gap-1 text-[var(--color-error,#e53e3e)]">
+                  <AlertTriangle size={14} />
+                  <span className="font-medium">角色卡提取失败</span>
+                </div>
+                <div className="px-3 text-[0.7rem] opacity-70 leading-relaxed">
+                  {extractError}
+                </div>
+                <div className="text-[0.7rem] opacity-50">
+                  请打开「角色图谱」页面点击“提取角色卡”重试
+                </div>
+              </>
+            ) : (
+              <div>暂无角色</div>
+            )}
+          </div>
         )}
       </div>
     </div>

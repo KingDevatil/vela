@@ -6,7 +6,7 @@ import { ipc } from '../ipc-client'
 import type { NovelConfig } from '../../shared/ipc-channels'
 import type { CharacterData } from '../../../electron/repositories/character-repository'
 
-import { runPostProcessPipeline, type PostProcessStep, stripThinkingTags } from './workflow-utils'
+import { runPostProcessPipeline, type PostProcessStep, safeParseJSON } from './workflow-utils'
 
 // ==========================================
 // 1. 类型定义
@@ -213,9 +213,7 @@ export function createCharacterExtractSteps(_projectPath: string, characterDynam
           )
         })
 
-        const cleanedCards = stripThinkingTags(fullContent)
-        const jsonStr = cleanedCards.replace(/```json?\n?/g, '').replace(/```/g, '').trim()
-        const parsedData = JSON.parse(jsonStr)
+        const parsedData = safeParseJSON(fullContent)
 
         // 兼容两种格式：直接数组 或 { characters: [...] }
         const parsedCards: Array<Record<string, unknown>> = Array.isArray(parsedData)
@@ -238,8 +236,18 @@ export function createCharacterExtractSteps(_projectPath: string, characterDynam
         }
 
         // 批量写入数据库
-        await ipc.invoke('db:character-save-all', characterDataList as unknown as CharacterData[])
-        cb.log(`✅ 角色卡提取完毕（共 ${characterDataList.length} 个角色）`)
+        const saveResult = await ipc.invoke('db:character-save-all', characterDataList as unknown as CharacterData[])
+        if (saveResult && typeof saveResult === 'object' && !saveResult.success) {
+          throw new Error(`角色卡写入数据库失败：${saveResult.error || '未知错误'}`)
+        }
+
+        // 验证写入结果
+        const verifyCount = await ipc.invoke('db:character-get-all')
+        const actualCount = Array.isArray(verifyCount) ? verifyCount.length : 0
+        if (actualCount === 0) {
+          throw new Error('角色卡写入后验证失败，数据库中仍无角色记录')
+        }
+        cb.log(`✅ 角色卡提取完毕（共 ${actualCount} 个角色）`)
       },
     },
   ]
@@ -294,6 +302,7 @@ export async function repairArchCharacterCards(projectPath: string): Promise<voi
           if (archStatus.allCriticalPassed) {
             globalEventBus.emit('ARCH_POSTPROCESS_UPDATED', {})
           } else {
+            globalEventBus.emit('CHARACTER_EXTRACT_FAILED', { error: archStatus.steps.extract_character_cards?.error })
             globalEventBus.emit('ARCH_POSTPROCESS_UPDATED', {})
           }
         },

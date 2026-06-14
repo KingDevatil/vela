@@ -68,7 +68,10 @@ export class RefineDraftCommand extends BaseWorkflowCommand<string> {
       revisionType: 'refine',
       content: cleanRefined,
       wordCount: cleanRefined.length,
-    }) as { success: boolean; id: number }
+    }) as { success: boolean; id?: number; error?: string }
+    if (!createRes?.success || createRes.id === undefined) {
+      throw new Error(`修稿版本创建失败：${createRes?.error || '未知错误'}`)
+    }
 
     const { useEditorStore } = await import('../../../stores/editor-store')
     useEditorStore.getState().openFile({

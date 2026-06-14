@@ -18,6 +18,7 @@ import { writeFileTool } from './write-file.tool'
 import { openEditorTool } from './open-editor.tool'
 import { startWorkflowTool } from './start-workflow.tool'
 import { updateConfigTool } from './update-config.tool'
+import { extractCharacterCardsTool } from './extract-character-cards.tool'
 
 /** 所有内置 Tool（供外部引用） */
 export const builtinTools = [
@@ -35,6 +36,7 @@ export const builtinTools = [
   openEditorTool,
   startWorkflowTool,
   updateConfigTool,
+  extractCharacterCardsTool,
 ]
 
 /**

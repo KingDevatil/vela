@@ -28,6 +28,7 @@ interface CharacterState {
   selectedName: string | null
   saving: boolean
   loaded: boolean
+  extractError: string | null
 
   load: () => Promise<void>
   reset: () => void
@@ -36,6 +37,7 @@ interface CharacterState {
   deleteCharacter: (name: string, projectPath?: string) => Promise<void>
   updateField: <K extends keyof CharacterCard>(name: string, key: K, value: CharacterCard[K]) => void
   saveAll: (projectPath?: string) => Promise<void>
+  setExtractError: (error: string | null) => void
 
   // 兼容旧接口
   loadCharacters: (projectPath: string) => Promise<void>
@@ -46,6 +48,7 @@ export const useCharacterStore = create<CharacterState>()((set, get) => ({
   selectedName: null,
   saving: false,
   loaded: false,
+  extractError: null,
 
   load: async () => {
     try {
@@ -58,6 +61,8 @@ export const useCharacterStore = create<CharacterState>()((set, get) => ({
         selectedName: cards.find(c => c.name === selectedName)
           ? selectedName
           : (cards.length > 0 ? cards[0].name : null),
+        // 有角色数据时清除提取错误标记
+        ...(cards.length > 0 ? { extractError: null } : {}),
       })
     } catch {
       set({ characters: [], selectedName: null, loaded: true })
@@ -69,8 +74,10 @@ export const useCharacterStore = create<CharacterState>()((set, get) => ({
   },
 
   reset: () => {
-    set({ characters: [], selectedName: null, saving: false, loaded: false })
+    set({ characters: [], selectedName: null, saving: false, loaded: false, extractError: null })
   },
+
+  setExtractError: (error) => set({ extractError: error }),
 
   setSelectedName: (name) => set({ selectedName: name }),
 

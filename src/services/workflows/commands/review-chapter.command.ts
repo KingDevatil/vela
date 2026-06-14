@@ -83,11 +83,14 @@ export class ReviewChapterCommand extends BaseWorkflowCommand<string> {
       parsedResult = { summary: '解析失败', items: [] }
     }
 
-    await ipc.invoke('db:review-create', {
+    const reviewRes = await ipc.invoke('db:review-create', {
       baseDraftId: baseDraft.id,
       reviewIndex: revIndex,
       content: JSON.stringify(parsedResult, null, 2),
-    })
+    }) as { success: boolean; error?: string }
+    if (!reviewRes?.success) {
+      callbacks.log(`⚠️ 审稿报告写入数据库失败：${reviewRes?.error || '未知错误'}`)
+    }
 
     // 将审稿报告 JSON 序列化为字符串，作为 content 传给 Tab
     // EditorArea 渲染 ReviewReport 的条件：activeTab.content 存在

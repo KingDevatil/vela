@@ -2,6 +2,7 @@ import type { WorkflowContext, StepCallbacks } from '../../../stores/workflow-st
 import { useLLMStore } from '../../../stores/llm-store'
 import { globalEventBus, EventPayloadMap } from '../../../shared/event-bus'
 import type { BasePromptBuilder } from '../../prompts/prompt-builder'
+import { safeParseJSON } from '../workflow-utils'
 
 export interface CommandExecuteParams {
   step: unknown
@@ -126,25 +127,7 @@ export abstract class BaseWorkflowCommand<TResult = string> {
    * 自动剥离 Markdown ```json 代码块并处理尾随逗号等常见大模型幻觉
    */
   protected parseJSON<T>(text: string): T {
-    try {
-      // 1. 剥离 Markdown 块
-      let cleanText = text.replace(/```json?\n?/gi, '').replace(/```\n?/gi, '').trim()
-      // 2. 如果存在前序引导语，截取第一把括号到最后一把括号
-      const firstBrace = cleanText.indexOf('{')
-      const firstBracket = cleanText.indexOf('[')
-      const lastBrace = cleanText.lastIndexOf('}')
-      const lastBracket = cleanText.lastIndexOf(']')
-
-      if (firstBrace !== -1 && lastBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
-        cleanText = cleanText.substring(firstBrace, lastBrace + 1)
-      } else if (firstBracket !== -1 && lastBracket !== -1) {
-        cleanText = cleanText.substring(firstBracket, lastBracket + 1)
-      }
-      
-      return JSON.parse(cleanText) as T
-    } catch {
-      throw new Error(`AI 返回的数据格式乱码，无法解析为有效层级结构。尝试解析内容末端: ${text.slice(-100)}`)
-    }
+    return safeParseJSON<T>(text)
   }
 
   /**

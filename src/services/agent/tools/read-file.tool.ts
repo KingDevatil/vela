@@ -8,14 +8,14 @@ import { validatePath } from './safe-path'
 
 export const readFileTool = buildAgentTool({
   name: 'read_file',
-  description: '读取项目内指定文件的内容。支持读取架构文件、蓝图、角色卡、草稿、配置等任意文本文件。',
+  description: '读取项目磁盘上的文件内容。仅用于读取实际存在的文件（如 .txt、.md、配置文件等）。注意：故事架构、角色卡、蓝图等数据存储在数据库中，请使用对应的专用工具（read_architecture、read_characters、read_blueprint）而非此工具。',
   source: 'builtin',
   inputSchema: {
     type: 'object',
     properties: {
       file_path: {
         type: 'string',
-        description: '相对于项目根目录的文件路径，例如 "02_architecture/世界观.md"',
+        description: '相对于项目根目录的文件路径，例如 "prompts/custom.md"',
       },
     },
     required: ['file_path'],
@@ -26,6 +26,11 @@ export const readFileTool = buildAgentTool({
     const project = useProjectStore.getState().currentProject
     if (!project) {
       return { success: false, content: '', error: '没有打开的项目' }
+    }
+
+    // 拦截伪协议路径，引导使用正确工具
+    if (filePath.startsWith('vela://')) {
+      return { success: false, content: '', error: `"${filePath}" 是数据库虚拟路径，不是磁盘文件。请使用 read_architecture 读取架构数据，或 read_characters 读取角色卡。` }
     }
 
     // 路径安全校验

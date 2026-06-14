@@ -9,6 +9,7 @@ import ArchitectureConfirmDialog from '../dialogs/ArchitectureConfirmDialog'
 import { Button } from '../ui/Button'
 import { EmptyState } from '../ui/EmptyState'
 import { ipc } from '../../services/ipc-client'
+import { toast } from '../ui/Toast'
 
 import { ARCH_CHARACTER_SCOPE, runArchCharacterExtract, createArchitectureWorkflow } from '../../services/workflows/architecture-workflow'
 import { readPostProcessStatus, type PostProcessStatus } from '../../services/workflows/workflow-utils'
@@ -78,10 +79,11 @@ export default function WorldBuildingEditor() {
       loadCharExtractStatus()
       setExtracting(false)
     })
-    const unsub2 = globalEventBus.on('CHARACTER_EXTRACT_FAILED', () => {
+    const unsub2 = globalEventBus.on('CHARACTER_EXTRACT_FAILED', (payload) => {
       setPostProcessKey(k => k + 1)
       loadCharExtractStatus()
       setExtracting(false)
+      toast.error(`角色卡提取失败：${payload.error || '未知错误'}`)
     })
     // 每步架构文件写完后实时刷新状态
     const unsub3 = globalEventBus.on('ARCH_FILE_UPDATED', () => {

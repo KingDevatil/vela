@@ -23,6 +23,134 @@ export function stripThinkingTags(text: string): string {
   return text.replace(/<think>[\s\S]*?(?:<\/think>|$)/gi, '').trim()
 }
 
+/**
+ * 容错 JSON 解析 — 专门应对 LLM 输出的各种格式问题
+ *
+ * 处理策略（按优先级逐级加强）：
+ * 1. 剥除 Markdown 代码块 + think 标签
+ * 2. 截取有效 JSON 边界（[ ] 或 { }）
+ * 3. 移除单行注释
+ * 4. 移除尾随逗号
+ * 5. 修复未加引号的 key
+ * 6. 将单引号字符串转为双引号
+ * 7. 转义字符串值中的控制字符（换行、Tab）
+ * 8. 最终兜底 JSON.parse
+ */
+export function safeParseJSON<T = unknown>(raw: string): T {
+  // 1. 剥除 Markdown 代码块 + think 标签
+  let text = stripThinkingTags(raw)
+    .replace(/```json?\n?/gi, '')
+    .replace(/```\n?/g, '')
+    .trim()
+
+  // 2. 截取有效 JSON 边界
+  const firstBracket = text.indexOf('[')
+  const lastBracket = text.lastIndexOf(']')
+  const firstBrace = text.indexOf('{')
+  const lastBrace = text.lastIndexOf('}')
+
+  if (firstBracket !== -1 && lastBracket !== -1 && (firstBrace === -1 || firstBracket < firstBrace)) {
+    text = text.substring(firstBracket, lastBracket + 1)
+  } else if (firstBrace !== -1 && lastBrace !== -1) {
+    text = text.substring(firstBrace, lastBrace + 1)
+  }
+
+  // 尝试多轮修复，每轮逐步加强
+  const errors: string[] = []
+
+  // 第 1 轮：基础清理（注释 + 尾随逗号）
+  let cleaned = removeCommentsAndTrailingCommas(text)
+  try { return JSON.parse(cleaned) as T } catch (e) { errors.push(String(e)) }
+
+  // 第 2 轮：修复未加引号的 key
+  cleaned = fixUnquotedKeys(cleaned)
+  try { return JSON.parse(cleaned) as T } catch (e) { errors.push(String(e)) }
+
+  // 第 3 轮：将单引号字符串转为双引号
+  cleaned = fixSingleQuotedStrings(cleaned)
+  try { return JSON.parse(cleaned) as T } catch (e) { errors.push(String(e)) }
+
+  // 第 4 轮：转义字符串值中的控制字符（换行/Tab）
+  cleaned = escapeControlCharsInStrings(cleaned)
+  try { return JSON.parse(cleaned) as T } catch (e) { errors.push(String(e)) }
+
+  // 全部策略失败，抛出详细错误
+  throw new Error(
+    `JSON 解析失败，已尝试 4 轮修复策略均无效。\n` +
+    `错误链：${errors.join(' → ')}\n` +
+    `内容前 200 字符：${text.slice(0, 200)}`
+  )
+}
+
+// ---------- safeParseJSON 内部修复函数 ----------
+
+/** 移除注释 + 尾随逗号 */
+function removeCommentsAndTrailingCommas(text: string): string {
+  // 移除单行注释
+  let result = text.replace(/(?<=^|[^\\])\/\/[^\n]*/gm, '')
+  // 反复清理尾随逗号
+  let prev = ''
+  while (prev !== result) {
+    prev = result
+    result = result.replace(/,\s*([\]}])/g, '$1')
+  }
+  return result
+}
+
+/** 修复未加引号的 key：{name: "value"} → {"name": "value"} */
+function fixUnquotedKeys(text: string): string {
+  // 匹配 { 或 , 后面跟着的未加引号的标识符作为 key
+  return text.replace(/([{,]\s*)([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/g, '$1"$2":')
+}
+
+/** 将单引号字符串转为双引号（简单启发式） */
+function fixSingleQuotedStrings(text: string): string {
+  // 仅当文本中不含任何双引号时才做替换，避免破坏已有的双引号字符串
+  if (text.includes('"')) return text
+  return text.replace(/'/g, '"')
+}
+
+/** 转义双引号字符串值中的控制字符（\n, \r, \t） */
+function escapeControlCharsInStrings(text: string): string {
+  // 遍历文本，找到双引号字符串并转义内部的控制字符
+  let result = ''
+  let i = 0
+  while (i < text.length) {
+    if (text[i] === '"') {
+      // 开始一个字符串
+      result += '"'
+      i++
+      while (i < text.length && text[i] !== '"') {
+        if (text[i] === '\\') {
+          // 已有的转义序列，原样保留
+          result += text[i] + (text[i + 1] || '')
+          i += 2
+        } else if (text[i] === '\n') {
+          result += '\\n'
+          i++
+        } else if (text[i] === '\r') {
+          result += '\\r'
+          i++
+        } else if (text[i] === '\t') {
+          result += '\\t'
+          i++
+        } else {
+          result += text[i]
+          i++
+        }
+      }
+      if (i < text.length) {
+        result += '"'
+        i++
+      }
+    } else {
+      result += text[i]
+      i++
+    }
+  }
+  return result
+}
+
 // ===== 通用重试包装器 =====
 
 /**
