@@ -54,7 +54,8 @@ export const readProjectStateTool = buildAgentTool({
             writingStyle: core.writingStyle
           }, null, 2)}\n\`\`\``)
         }
-      } catch {
+      } catch (e) {
+        console.warn('[ReadProjectState] 角色状态读取失败:', e)
         // Fallback
         parts.push(`## 小说配置\n⚠️ 获取配置失败`)
       }
@@ -75,7 +76,7 @@ export const readProjectStateTool = buildAgentTool({
             }
           }
         }
-      } catch { /* 忽略 */ }
+      } catch (e) { console.warn('[ReadProjectState] 蓝图 notes 读取失败:', e) }
 
       if (notesParts.length > 0) {
         parts.push(`## 近章要点\n${notesParts.join('\n\n')}`)

@@ -44,25 +44,33 @@ export function initProjectService(): void {
         return
       }
 
-      // 刷新文件树（所有工作流完成后都需要）
-      console.log('[ProjectService] 开始刷新文件树...')
-      await useProjectStore.getState().refreshFileTree()
-      console.log('[ProjectService] 文件树刷新完成')
+      // 刷新文件树（独立 try-catch，失败不阻断后续刷新）
+      try {
+        console.log('[ProjectService] 开始刷新文件树...')
+        await useProjectStore.getState().refreshFileTree()
+        console.log('[ProjectService] 文件树刷新完成')
+      } catch (e) {
+        console.warn('[ProjectService] 文件树刷新失败（不影响后续刷新）:', e)
+      }
 
       // 根据工作流类型精准刷新
-      if (payload.type === 'chapter_creation') {
-        // 章节创作完成 → 刷新草稿 + 角色卡（定稿后处理会更新角色状态）
-        console.log('[ProjectService] 刷新草稿和角色卡...')
-        await Promise.all([
-          useDraftStore.getState().loadAllDrafts(),
-          useCharacterStore.getState().load(),
-        ])
-        console.log('[ProjectService] 草稿和角色卡刷新完成')
-      } else if (payload.type === 'architecture_generation' || payload.type === 'post_process') {
-        // 架构生成 / 后处理完成 → 角色卡可能被提取
-        console.log('[ProjectService] 刷新角色卡...')
-        await useCharacterStore.getState().load()
-        console.log('[ProjectService] 角色卡刷新完成')
+      try {
+        if (payload.type === 'chapter_creation') {
+          // 章节创作完成 → 刷新草稿 + 角色卡（定稿后处理会更新角色状态）
+          console.log('[ProjectService] 刷新草稿和角色卡...')
+          await Promise.all([
+            useDraftStore.getState().loadAllDrafts(),
+            useCharacterStore.getState().load(),
+          ])
+          console.log('[ProjectService] 草稿和角色卡刷新完成')
+        } else if (payload.type === 'architecture_generation' || payload.type === 'post_process') {
+          // 架构生成 / 后处理完成 → 角色卡可能被提取
+          console.log('[ProjectService] 刷新角色卡...')
+          await useCharacterStore.getState().load()
+          console.log('[ProjectService] 角色卡刷新完成，角色数:', useCharacterStore.getState().characters.length)
+        }
+      } catch (e) {
+        console.error('[ProjectService] 数据刷新失败:', e)
       }
     })
   )
@@ -73,21 +81,29 @@ export function initProjectService(): void {
       const project = useProjectStore.getState().currentProject
       if (!project) return
 
-      await Promise.all([
-        useDraftStore.getState().loadChapterDrafts(payload.chapterNumber),
-        useCharacterStore.getState().load(),
-        useProjectStore.getState().refreshFileTree(),
-      ])
+      try {
+        await Promise.all([
+          useDraftStore.getState().loadChapterDrafts(payload.chapterNumber),
+          useCharacterStore.getState().load(),
+          useProjectStore.getState().refreshFileTree(),
+        ])
 
-      // 同步编辑器中已打开的相关 Tab 内容（草稿文件可能已被定稿流程修改）
-      syncEditorTabsForChapter(payload.chapterNumber)
+        // 同步编辑器中已打开的相关 Tab 内容（草稿文件可能已被定稿流程修改）
+        syncEditorTabsForChapter(payload.chapterNumber)
+      } catch (e) {
+        console.error('[ProjectService] FINALIZE_COMPLETE 数据刷新失败:', e)
+      }
     })
   )
 
   // 架构后处理完成 → 刷新角色卡
   disposers.push(
     globalEventBus.on('ARCH_POSTPROCESS_UPDATED', async () => {
-      await useCharacterStore.getState().load()
+      try {
+        await useCharacterStore.getState().load()
+      } catch (e) {
+        console.error('[ProjectService] ARCH_POSTPROCESS_UPDATED 角色卡刷新失败:', e)
+      }
     })
   )
 

@@ -194,60 +194,105 @@ export function createCharacterExtractSteps(_projectPath: string, characterDynam
         const systemRole = template.systemRole || '你是一位专业的小说数据结构化专家。'
 
         const llmStore = useLLMStore.getState()
-        cb.appendText('🔍 正在调用 AI 提取角色卡片...\n')
 
-        let fullContent = ''
-        await new Promise<void>((resolve, reject) => {
-          llmStore.generateStream(
-            [
-              { role: 'system', content: systemRole },
-              { role: 'user', content: extractPrompt }
-            ],
-            {
-              onChunk: (chunk) => { fullContent += chunk; cb.appendText(chunk) },
-              onDone: () => resolve(),
-              onError: (err) => reject(new Error(err))
-            },
-            undefined,
-            { responseFormat: { type: 'json_object' } }
-          )
-        })
+        // 带重试的 LLM 调用 + JSON 解析
+        const MAX_PARSE_RETRIES = 2
+        let lastError: string | undefined
 
-        const parsedData = safeParseJSON(fullContent)
+        for (let attempt = 0; attempt <= MAX_PARSE_RETRIES; attempt++) {
+          if (attempt > 0) {
+            cb.log(`⚠️ 角色卡提取第${attempt}次重试中...（原因：${lastError}）`)
+          } else {
+            cb.appendText('🔍 正在调用 AI 提取角色卡片...\n')
+          }
 
-        // 兼容两种格式：直接数组 或 { characters: [...] }
-        const parsedCards: Array<Record<string, unknown>> = Array.isArray(parsedData)
-          ? parsedData
-          : (parsedData && typeof parsedData === 'object' && Array.isArray((parsedData as Record<string, unknown>).characters))
-            ? (parsedData as Record<string, unknown>).characters as Array<Record<string, unknown>>
-            : []
+          // 重试时在 prompt 末尾追加更严格的格式约束
+          const finalPrompt = attempt === 0
+            ? extractPrompt
+            : extractPrompt + '\n\n【极其重要】请务必仅输出合法的 JSON 数组，不要包含任何 Markdown 标记、解释文字或注释。JSON 必须能被 JSON.parse() 直接解析。'
 
-        if (parsedCards.length === 0) {
-          throw new Error('AI 返回的角色数据格式不正确，未提取到有效角色')
+          let fullContent = ''
+          try {
+            await new Promise<void>((resolve, reject) => {
+              llmStore.generateStream(
+                [
+                  { role: 'system', content: systemRole },
+                  { role: 'user', content: finalPrompt }
+                ],
+                {
+                  onChunk: (chunk) => { fullContent += chunk; if (attempt === 0) cb.appendText(chunk) },
+                  onDone: () => resolve(),
+                  onError: (err) => reject(new Error(err))
+                },
+                undefined,
+                { responseFormat: { type: 'json_object' } }
+              )
+            })
+          } catch (llmErr) {
+            lastError = `LLM 调用失败: ${String(llmErr)}`
+            continue
+          }
+
+          try {
+            const parsedData = safeParseJSON(fullContent)
+
+            // 兼容两种格式：直接数组 或 { characters: [...] }
+            const parsedCards: Array<Record<string, unknown>> = Array.isArray(parsedData)
+              ? parsedData
+              : (parsedData && typeof parsedData === 'object' && Array.isArray((parsedData as Record<string, unknown>).characters))
+                ? (parsedData as Record<string, unknown>).characters as Array<Record<string, unknown>>
+                : []
+
+            if (parsedCards.length === 0) {
+              lastError = 'AI 返回的角色数据为空（解析成功但无有效角色）'
+              continue
+            }
+
+            // 构建角色卡数据列表
+            const validRoles = ['protagonist', 'antagonist', 'supporting', 'minor']
+            const characterDataList: Array<Record<string, unknown>> = []
+            for (const card of parsedCards) {
+              if (!card.name) continue
+              const role = validRoles.includes(card.role as string) ? card.role : 'supporting'
+              characterDataList.push({ ...card, role, name: card.name })
+            }
+
+            if (characterDataList.length === 0) {
+              lastError = `解析到 ${parsedCards.length} 个角色但全部因缺少 name 字段被过滤`
+              continue
+            }
+
+            // 批量写入数据库
+            const saveResult = await ipc.invoke('db:character-save-all', characterDataList as unknown as CharacterData[])
+            if (saveResult && typeof saveResult === 'object' && !saveResult.success) {
+              throw new Error(`角色卡写入数据库失败：${saveResult.error || '未知错误'}`)
+            }
+
+            // 验证写入结果
+            const verifyCount = await ipc.invoke('db:character-get-all')
+            const actualCount = Array.isArray(verifyCount) ? verifyCount.length : 0
+            if (actualCount === 0) {
+              throw new Error('角色卡写入后验证失败，数据库中仍无角色记录')
+            }
+            cb.log(`✅ 角色卡提取完毕（共 ${actualCount} 个角色）`)
+
+            // 主动触发角色卡 Store 刷新（不依赖事件链，确保 UI 即时更新）
+            try {
+              const { useCharacterStore } = await import('../../stores/character-store')
+              await useCharacterStore.getState().load()
+              console.log(`[ArchWorkflow] 角色卡已主动刷新到 Store，当前角色数: ${useCharacterStore.getState().characters.length}`)
+            } catch (e) {
+              console.warn('[ArchWorkflow] 角色卡 Store 刷新失败:', e)
+            }
+
+            return // 成功，退出重试循环
+          } catch (parseErr) {
+            lastError = `JSON 解析失败: ${String(parseErr)}`
+          }
         }
 
-        // 构建角色卡数据列表
-        const validRoles = ['protagonist', 'antagonist', 'supporting', 'minor']
-        const characterDataList: Array<Record<string, unknown>> = []
-        for (const card of parsedCards) {
-          if (!card.name) continue
-          const role = validRoles.includes(card.role as string) ? card.role : 'supporting'
-          characterDataList.push({ ...card, role, name: card.name })
-        }
-
-        // 批量写入数据库
-        const saveResult = await ipc.invoke('db:character-save-all', characterDataList as unknown as CharacterData[])
-        if (saveResult && typeof saveResult === 'object' && !saveResult.success) {
-          throw new Error(`角色卡写入数据库失败：${saveResult.error || '未知错误'}`)
-        }
-
-        // 验证写入结果
-        const verifyCount = await ipc.invoke('db:character-get-all')
-        const actualCount = Array.isArray(verifyCount) ? verifyCount.length : 0
-        if (actualCount === 0) {
-          throw new Error('角色卡写入后验证失败，数据库中仍无角色记录')
-        }
-        cb.log(`✅ 角色卡提取完毕（共 ${actualCount} 个角色）`)
+        // 所有重试均失败
+        throw new Error(`角色卡提取失败（已重试 ${MAX_PARSE_RETRIES} 次）：${lastError}`)
       },
     },
   ]

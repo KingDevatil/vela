@@ -35,7 +35,7 @@ export class GenerateDraftCommand extends BaseWorkflowCommand {
       if (futureBlueprintsArr.length > 0) {
         futureBlueprintsStr = futureBlueprintsArr.map(b => `第${b.chapterNumber}章 ${b.title}：${b.keyEvents}`).join('\n')
       }
-    } catch { /* 忽略 */ }
+    } catch (e) { console.warn('[GenerateDraft] 读取后续蓝图失败:', e) }
 
     const isFirstChapter = this.chapterInfo.chapterNumber === 1
     const templateKey = isFirstChapter ? 'first_chapter_draft' : 'next_chapter_draft'
@@ -67,7 +67,7 @@ export class GenerateDraftCommand extends BaseWorkflowCommand {
           const full = await ipc.invoke('db:draft-get-full', meta.id)
           if (full?.content) previousEnding = full.content.slice(-1000)
         }
-      } catch { /* 忽略 */ }
+      } catch (e) { console.warn('[GenerateDraft] 读取上一章定稿结尾失败:', e) }
 
       let filteredContext = ''
       try {
@@ -81,7 +81,8 @@ export class GenerateDraftCommand extends BaseWorkflowCommand {
         filteredContext = results.length > 0
           ? results.map((r: { fileName: string; score: number; text: string }, i: number) => `[${i + 1}] (${r.fileName}, 相关度 ${(r.score * 100).toFixed(0)}%)\n${r.text}`).join('\n\n')
           : '（知识库中无相关内容）'
-      } catch {
+      } catch (e) {
+        console.warn('[GenerateDraft] 知识库检索失败:', e)
         filteredContext = '（知识库检索不可用）'
       }
 
@@ -119,7 +120,10 @@ export class GenerateDraftCommand extends BaseWorkflowCommand {
       source: 'write',
       content: cleanDraftText,
       wordCount: cleanDraftText.length,
-    })
+    }) as { success: boolean; id?: number; error?: string }
+    if (!createResult?.success) {
+      throw new Error(`草稿写入数据库失败：${createResult?.error || '未知错误'}`)
+    }
 
     const pseudoPath = createResult.id ? `vela://draft/${createResult.id}` : `vela://draft/ch${this.chapterInfo.chapterNumber}/v${nextVersion}`
 
@@ -135,7 +139,7 @@ export class GenerateDraftCommand extends BaseWorkflowCommand {
     try {
       const { useDraftStore } = await import('../../../stores/draft-store')
       await useDraftStore.getState().loadAllDrafts()
-    } catch { /* 忽略 */ }
+    } catch (e) { console.warn('[GenerateDraft] 刷新草稿列表失败:', e) }
 
     try {
       const { useEditorStore } = await import('../../../stores/editor-store')
@@ -146,7 +150,7 @@ export class GenerateDraftCommand extends BaseWorkflowCommand {
         filePath: pseudoPath,
         content: cleanDraftText,
       })
-    } catch { /* 忽略 */ }
+    } catch (e) { console.warn('[GenerateDraft] 打开编辑器 Tab 失败:', e) }
 
     callbacks.log(`✅ 草稿已自动入库保存为版本 v${nextVersion}（${draftText.length} 字）`)
     return draftText
@@ -177,7 +181,7 @@ export class GenerateDraftCommand extends BaseWorkflowCommand {
         }
       }
       return parts.join('\n\n')
-    } catch { return '' }
+    } catch (e) { console.warn('[GenerateDraft] 读取项目指导文件失败:', e); return '' }
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -200,7 +204,7 @@ export class GenerateDraftCommand extends BaseWorkflowCommand {
         }
       }
       return states.length > 0 ? `【角色状态档案】\n${states.join('\n')}` : '（暂无角色状态档案）'
-    } catch { return '（角色状态档案读取失败）' }
+    } catch (e) { console.warn('[GenerateDraft] 读取角色状态档案失败:', e); return '（角色状态档案读取失败）' }
   }
 
   /**
@@ -226,7 +230,7 @@ export class GenerateDraftCommand extends BaseWorkflowCommand {
           // 远期章节：仅保留标题行（节省 Token）
           lines.push(`【第${i}章 ${bp.title || ''}】`)
         }
-      } catch { /* 忽略单章读取失败 */ }
+      } catch (e) { console.warn('[GenerateDraft] 单章蓝图读取失败:', e) }
     }
 
     // Token 预算控制：超限时从最早的完整要点开始精简

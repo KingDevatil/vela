@@ -54,7 +54,14 @@ export const useCharacterStore = create<CharacterState>()((set, get) => ({
     try {
       const cards = await ipc.invoke('db:character-get-all')
 
+      // 防御：确保 IPC 返回的是数组
+      if (!Array.isArray(cards)) {
+        console.warn('[CharacterStore] db:character-get-all 返回非数组:', typeof cards, cards)
+        return
+      }
+
       const { selectedName } = get()
+      console.log(`[CharacterStore] 加载完成: ${cards.length} 个角色`, cards.map(c => c.name))
       set({
         characters: cards,
         loaded: true,
@@ -64,8 +71,11 @@ export const useCharacterStore = create<CharacterState>()((set, get) => ({
         // 有角色数据时清除提取错误标记
         ...(cards.length > 0 ? { extractError: null } : {}),
       })
-    } catch {
-      set({ characters: [], selectedName: null, loaded: true })
+    } catch (e) {
+      // 关键：失败时保留已有角色数据，不要清空
+      const { characters } = get()
+      console.error('[CharacterStore] 加载角色卡失败:', e, '— 保留已有数据，当前角色数:', characters.length)
+      set({ loaded: true }) // 只更新 loaded 标志，不修改 characters
     }
   },
 
@@ -98,7 +108,7 @@ export const useCharacterStore = create<CharacterState>()((set, get) => ({
     if (!card) return
 
     // SQLite 删除
-    try { await ipc.invoke('db:character-delete', name) } catch { /* 忽略 */ }
+    try { await ipc.invoke('db:character-delete', name) } catch (e) { console.warn('[CharacterStore] 角色删除失败:', e) }
 
     const remaining = characters.filter(c => c.name !== name)
     set({

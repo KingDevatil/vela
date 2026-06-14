@@ -39,22 +39,30 @@ export class ImportInitializeCommand extends BaseWorkflowCommand<void> {
     callbacks.setProgress(5)
 
     // 1. 批量创建草稿并标记为 finalized
+    let draftFailCount = 0
     for (let i = 0; i < this.chapters.length; i++) {
       const ch = this.chapters[i]
 
       // 直接调用 DB 写库（来源设为 write）
-      await ipc.invoke('db:draft-create', {
+      const draftRes = await ipc.invoke('db:draft-create', {
         chapterNumber: ch.number,
         version: 1,
         content: ch.content,
         wordCount: ch.wordCount,
         source: 'write'
-      })
+      }) as { success: boolean; id?: number; error?: string }
+      if (!draftRes?.success) {
+        draftFailCount++
+        callbacks.log(`  ⚠️ 第 ${ch.number} 章草稿写入失败：${draftRes?.error || '未知错误'}`)
+      }
 
       if (i % 10 === 0) {
         callbacks.setProgress(5 + Math.round((i / this.chapters.length) * 40))
         callbacks.log(`  ✍️ 已导入第 ${ch.number} 章（${ch.wordCount} 字）`)
       }
+    }
+    if (draftFailCount > 0) {
+      callbacks.log(`⚠️ ${draftFailCount} 章草稿写入失败，其余章节已正常导入`)
     }
     callbacks.log(`✅ 全部 ${this.chapters.length} 章已作为定稿导入数据库`)
     callbacks.setProgress(45)
@@ -205,20 +213,23 @@ export class InferGlobalSettingsCommand extends BaseWorkflowCommand<void> {
         await ipc.invoke('project:save', plainData.id, plainData)
       }
       callbacks.log('✅ 小说配置已更新')
-
       // 生成配置摘要供后续步骤使用
       context.data.novelConfigSummary = `类型: ${novelConfig.genre || '未知'} | 子类型: ${novelConfig.subGenre || '未知'} | 受众: ${novelConfig.targetAudience || '未知'}\n大纲: ${novelConfig.coreOutline || '（无）'}\n世界观: ${novelConfig.worldSetting || '（无）'}\n金手指: ${novelConfig.goldenFinger || '（无）'}\n主角: ${novelConfig.protagonistProfile || '（无）'}`
     }
 
     // ===== 写入架构信息 =====
     if (inferResult.architectureFiles) {
-      await ipc.invoke('db:project-core-update', {
+      const archRes = await ipc.invoke('db:project-core-update', {
         premise: inferResult.architectureFiles.premise,
         charactersArch: inferResult.architectureFiles.characters,
         worldbuilding: inferResult.architectureFiles.world,
         synopsis: inferResult.architectureFiles.synopsis,
-      })
-      callbacks.log('✅ 四段式故事架构已持久化到数据库')
+      }) as { success: boolean; error?: string }
+      if (archRes?.success) {
+        callbacks.log('✅ 四段式故事架构已持久化到数据库')
+      } else {
+        callbacks.log(`⚠️ 架构写入失败：${archRes?.error || '未知错误'}`)
+      }
     }
 
     // ===== 写入角色卡 =====
@@ -246,7 +257,10 @@ export class InferGlobalSettingsCommand extends BaseWorkflowCommand<void> {
         createdCount++
       }
       if (cardsToSave.length > 0) {
-        await ipc.invoke('db:character-save-all', cardsToSave)
+        const charRes = await ipc.invoke('db:character-save-all', cardsToSave) as { success: boolean; error?: string }
+        if (!charRes?.success) {
+          callbacks.log(`⚠️ 角色卡写入失败：${charRes?.error || '未知错误'}`)
+        }
       }
       callbacks.log(`✅ 已生成 ${createdCount} 张角色卡`)
     }
@@ -327,7 +341,8 @@ export class InferBlueprintsPerChapterCommand extends BaseWorkflowCommand<void> 
           notesUpdatedAt: '',
         }
 
-        await ipc.invoke('db:blueprint-upsert', finalBlueprint)
+        const bpRes = await ipc.invoke('db:blueprint-upsert', finalBlueprint) as { success: boolean; error?: string }
+        if (!bpRes?.success) throw new Error(`蓝图写入失败: ${bpRes?.error || '未知错误'}`)
 
         completedCount++
         callbacks.log(`  ✅ 第 ${ch.number} 章蓝图已生成`)

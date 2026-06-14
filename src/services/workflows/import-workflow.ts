@@ -76,13 +76,13 @@ export function createImportWorkflow(params: ImportWorkflowParams): WorkflowDefi
             if (project) {
               await useCharacterStore.getState().loadCharacters(project.path)
             }
-          } catch { /* 忽略 */ }
+          } catch (e) { console.warn('[ImportWorkflow] 加载角色卡失败:', e) }
 
           // 加载草稿索引
           try {
             const { useDraftStore } = await import('../../stores/draft-store')
             await useDraftStore.getState().loadAllDrafts()
-          } catch { /* 忽略 */ }
+          } catch (e) { console.warn('[ImportWorkflow] 加载草稿列表失败:', e) }
 
           callbacks.log('🎉 小说导入全流程完成！所有数据已就位。')
           callbacks.setProgress(100)

@@ -243,7 +243,7 @@ export function createFinalizeWorkflow(params: FinalizeOnlyParams): WorkflowDefi
           try {
             const bp = await ipc.invoke('db:blueprint-get', params.chapterNumber)
             if (bp?.title) displayTitle = bp.title
-          } catch { /* 蓝图读取失败时回退到 params */ }
+          } catch (e) { console.warn('[ChapterWorkflow] 蓝图读取失败，回退到 params:', e) }
           const dbPath = `vela://manuscript/${draftMeta.id}`
           useEditorStore.getState().openFile({
             id: dbPath,
@@ -287,7 +287,7 @@ export function createRepairFinalizeWorkflow(chapterNumber: number): WorkflowDef
           try {
             const bp = await ipc.invoke('db:blueprint-get', chapterNumber)
             if (bp?.title) chapterTitle = bp.title
-          } catch { /* 蓝图读取失败时使用默认标题 */ }
+          } catch (e) { console.warn('[ChapterWorkflow] 蓝图读取失败，使用默认标题:', e) }
 
           // 构建后处理步骤并以修复模式执行（跳过已成功的步骤）
           const { buildFinalizePostProcessSteps } = await import('./commands/finalize-chapter.command')
